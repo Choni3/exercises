@@ -39,6 +39,7 @@ module Lecture2
     , eval
     , constantFolding
     ) where
+import Data.Char
 
 -- VVV If you need to import libraries, do it after this line ... VVV
 
@@ -52,7 +53,9 @@ zero, you can stop calculating product and return 0 immediately.
 84
 -}
 lazyProduct :: [Int] -> Int
-lazyProduct = error "TODO"
+lazyProduct [] = 1
+lazyProduct (0 : _) = 0
+lazyProduct (x : xs) = x * lazyProduct xs
 
 {- | Implement a function that duplicates every element in the list.
 
@@ -62,7 +65,7 @@ lazyProduct = error "TODO"
 "ccaabb"
 -}
 duplicate :: [a] -> [a]
-duplicate = error "TODO"
+duplicate = concatMap (\x -> [x, x])
 
 {- | Implement function that takes index and a list and removes the
 element at the given position. Additionally, this function should also
@@ -74,7 +77,20 @@ return the removed element.
 >>> removeAt 10 [1 .. 5]
 (Nothing,[1,2,3,4,5])
 -}
-removeAt = error "TODO"
+lengthLazy :: Int -> [a] -> Int
+lengthLazy _ [] = 0
+lengthLazy 0 _ = 0
+lengthLazy n (_ : xs) = 1 + lengthLazy (n - 1) xs
+
+
+removeAt :: Int -> [a] -> (Maybe a, [a])
+removeAt n list
+    | n < 0 = (Nothing, list)
+    | lengthLazy (n+1) list <= n = (Nothing, list) 
+    | otherwise = (Just (head suf), pref ++ drop 1 suf)
+    where
+        pref = take n list
+        suf = drop n list
 
 {- | Write a function that takes a list of lists and returns only
 lists of even lengths.
@@ -85,7 +101,8 @@ lists of even lengths.
 ♫ NOTE: Use eta-reduction and function composition (the dot (.) operator)
   in this function.
 -}
-evenLists = error "TODO"
+evenLists :: [[a]] -> [[a]]
+evenLists = filter (even . length)
 
 {- | The @dropSpaces@ function takes a string containing a single word
 or number surrounded by spaces and removes all leading and trailing
@@ -101,7 +118,13 @@ spaces.
 
 🕯 HINT: look into Data.Char and Prelude modules for functions you may use.
 -}
-dropSpaces = error "TODO"
+findFirstInString :: (Char -> Bool) -> [Char] -> Int
+findFirstInString _ [] = 0
+findFirstInString f (x : xs) = if f x then 0 else 1 + findFirstInString f xs
+
+
+dropSpaces :: String -> String
+dropSpaces x = take (findFirstInString isSpace y) y where y = (drop (findFirstInString (not . isSpace) x) x)
 
 {- |
 
@@ -158,13 +181,35 @@ You're free to define any helper functions.
 -}
 
 -- some help in the beginning ;)
-data Knight = Knight
+data Knight = MkKnight
     { knightHealth    :: Int
     , knightAttack    :: Int
     , knightEndurance :: Int
     }
 
-dragonFight = error "TODO"
+-- data Chest a = MkChest 
+--     { chestGold :: Int
+--     , chestTreasure :: Maybe a
+--     }
+-- data Color
+--     = Red
+--     | Green
+--     | Blue
+
+
+-- data Dragon = Dragon 
+--     { dragonHealth :: Int
+--     , dragonAttack :: Int
+--     , dragonColor :: Color
+--     , dragonChest :: 
+--     }
+
+
+-- dragonFight :: Knight -> Dragon -> String
+dragonFight knight dragon = "asdasd"
+--     | dragonHealth dragon < 0 = "Knight Lost"
+--     | knightHealth knight < 0 = "Dragon Lost" ++ show 
+--     | 
 
 ----------------------------------------------------------------------------
 -- Extra Challenges
@@ -185,7 +230,10 @@ False
 True
 -}
 isIncreasing :: [Int] -> Bool
-isIncreasing = error "TODO"
+isIncreasing [] = True
+isIncreasing [x] = True
+isIncreasing (x : y : xs) = (x <= y) && isIncreasing (y : xs)
+
 
 {- | Implement a function that takes two lists, sorted in the
 increasing order, and merges them into new list, also sorted in the
@@ -198,8 +246,11 @@ verify that.
 [1,2,3,4,7]
 -}
 merge :: [Int] -> [Int] -> [Int]
-merge = error "TODO"
-
+merge x [] = x
+merge [] y = y
+merge (x : xs) (y : ys)
+    | x <= y = x : merge xs (y:ys)
+    | otherwise = y : merge (x : xs) ys
 {- | Implement the "Merge Sort" algorithm in Haskell. The @mergeSort@
 function takes a list of numbers and returns a new list containing the
 same numbers but in the increasing order.
@@ -214,8 +265,20 @@ The algorithm of merge sort is the following:
 >>> mergeSort [3, 1, 2]
 [1,2,3]
 -}
+evens :: [a] -> [a]
+evens (x:xs) = x:odds xs
+evens _ = []
+
+odds :: [a] -> [a]
+odds (_:xs) = evens xs
+odds _ = []
+
 mergeSort :: [Int] -> [Int]
-mergeSort = error "TODO"
+mergeSort [] = []
+mergeSort [x] = [x]
+mergeSort x = merge (mergeSort (evens x)) (mergeSort (odds x))
+
+
 
 
 {- | Haskell is famous for being a superb language for implementing
@@ -268,7 +331,21 @@ data EvalError
 It returns either a successful evaluation result or an error.
 -}
 eval :: Variables -> Expr -> Either EvalError Int
-eval = error "TODO"
+eval _ (Lit x) = Right x
+eval dicti (Var x) = maybeToError (lookup x dicti) x
+eval dicti (Add x y) = sumEithers (eval dicti x) (eval dicti y)
+
+maybeToError :: Maybe Int -> String -> Either EvalError Int
+maybeToError Nothing name = Left (VariableNotFound name)
+maybeToError (Just x) _ = Right x
+
+sumEithers :: Either a Int -> Either a Int -> Either a Int
+sumEithers p q = case p of
+    Left x -> Left x
+    Right m -> case q of
+        Left y -> Left y
+        Right n -> Right (m + n)
+
 
 {- | Compilers also perform optimizations! One of the most common
 optimizations is "Constant Folding". It performs arithmetic operations
@@ -291,5 +368,39 @@ x + 45 + y
 Write a function that takes and expression and performs "Constant
 Folding" optimization on the given expression.
 -}
+
+
+extend :: Expr -> [Expr]
+extend expo = case expo of
+    Lit x -> [Lit x]
+    Var x -> [Var x]
+    Add x y -> extend x ++ extend y
+isLit :: Expr -> Bool
+isLit x = case x of
+    Lit _ -> True
+    _ -> False
+
+getLit :: Expr -> Int
+getLit x = case x of
+    Lit a -> a
+    _ -> 0
+sumMaybes :: Maybe Expr -> Maybe Expr -> Maybe Expr
+sumMaybes p q = case p of
+    Nothing -> q
+    Just x -> case q of
+        Nothing -> Nothing
+        Just y -> Just (Add x y)
+
+
+combineListExpr :: [Expr] -> Maybe Expr
+combineListExpr [] = Nothing
+combineListExpr [Lit 0] = Nothing
+combineListExpr [x] = Just x
+combineListExpr ((Lit 0) : xs) = combineListExpr xs
+combineListExpr (x : xs) = sumMaybes (Just x)  (combineListExpr xs)
+
 constantFolding :: Expr -> Expr
-constantFolding = error "TODO"
+constantFolding expr = case result of 
+    Nothing -> Lit 0
+    Just x -> x
+    where result = combineListExpr (Lit (sum (map getLit (filter isLit (extend expr)))) : filter (not . isLit) (extend expr))
